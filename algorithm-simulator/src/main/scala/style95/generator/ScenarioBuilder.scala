@@ -2,7 +2,7 @@ package style95.generator
 
 import scala.concurrent.duration._
 
-import akka.actor.Actor
+import akka.actor.{Actor, ActorRef, Props}
 
 trait BehaviorDescriptor {
   def timing: TimingGenerator
@@ -21,6 +21,8 @@ trait TimingGenerator {
 trait IntervalBehavior {
   def behavior: BehaviorDescriptor
   def duration: FiniteDuration
+
+  def against: ActorRef => Props = SingleBehaviorActor.props(this)
 }
 
 case class WrappedIntervalBehavior(behavior: BehaviorDescriptor,
@@ -34,7 +36,7 @@ class ScenarioBuilder(val sequence: List[IntervalBehavior]) {
     new ScenarioBuilder(newSeq)
   }
 
-  def toActor: Actor = ???
+  def toActor: Props = ???
 
   implicit def behaviorToBuilder(behavior: IntervalBehavior): ScenarioBuilder =
     new ScenarioBuilder(List(behavior))
