@@ -6,12 +6,9 @@ import scala.math.{log, random}
 
 case class Maintain(tps: Int) extends BehaviorDescriptor with Stationary {
   class Gen extends TimingGenerator {
-    def next(elapsed: FiniteDuration): Option[FiniteDuration] = {
+    def next(elapsed: FiniteDuration): FiniteDuration = {
       require(tps >= 1, "tps should be at least one")
-
-      val delay = (-log(random()) / tps) seconds
-
-      Some(delay)
+      (-log(1.0 - random()) / tps) seconds
     }
   }
 

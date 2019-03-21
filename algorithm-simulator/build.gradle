@@ -9,12 +9,12 @@ repositories {
 }
 
 dependencies {
-    compile "org.scala-lang:scala-library:${gradle.scala.version}"
+    implementation "org.scala-lang:scala-library:${gradle.scala.version}"
 
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.scalatest:scalatest_2.12:3.0.5'
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.scalatest:scalatest_2.12:3.0.5'
 
-    runtimeOnly 'org.scala-lang.modules:scala-xml_2.12:1.1.1'
+    testRuntimeOnly 'org.scala-lang.modules:scala-xml_2.12:1.1.1'
 
     compile 'com.typesafe.akka:akka-actor_2.12:2.5.12'
     compile 'com.typesafe.akka:akka-stream_2.12:2.5.12'
@@ -23,7 +23,11 @@ dependencies {
     compile 'com.typesafe.akka:akka-http-core_2.12:10.1.1'
     compile 'com.typesafe.akka:akka-http-spray-json_2.12:10.1.1'
 
-    compile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.21'
+    compile group: 'com.typesafe.akka', name: 'akka-testkit_2.12', version: '2.5.12'
+}
+
+test {
+    maxParallelForks = Runtime.runtime.availableProcessors()
 }
 
 tasks.withType(ScalaCompile) {

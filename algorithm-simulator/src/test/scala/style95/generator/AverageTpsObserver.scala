@@ -1,30 +1,33 @@
 package style95.generator
 
-import akka.actor.{Actor, ActorRef, Terminated, Props, PoisonPill}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props, Terminated}
 import style95.Container.ActivationMessage
 
 object AverageTpsObserver {
   final case class AverageTps(tps: Double, secs: Double)
 
-  def props(monitor: ActorRef): Props = Props(new AverageTpsObserver(monitor))
+  def props(behavior: IntervalBehavior, monitor: ActorRef): Props =
+    Props(new AverageTpsObserver(behavior, monitor))
 }
 
-class AverageTpsObserver(monitor: ActorRef) extends Actor {
+class AverageTpsObserver(behavior: IntervalBehavior, monitor: ActorRef)
+    extends Actor
+    with ActorLogging {
   import AverageTpsObserver._
 
+  private val generator = context.actorOf(behavior against self)
+  context.watch(generator)
   private var hits = 0
+  private val start = System.nanoTime()
 
   override def receive: Receive = {
-    case ActivationMessage =>
-      context.become(started(sender, System.nanoTime()))
-  }
-
-  private def started(requester: ActorRef, startTime: Long): Receive = {
-    case ActivationMessage =>
+    case _: ActivationMessage =>
       hits += 1
-    case Terminated(`requester`) =>
-      val secs = (System.nanoTime() - startTime).toDouble / 1e9
-      monitor ! AverageTps(hits, secs)
-      self ! PoisonPill
+    case Terminated(`generator`) =>
+      val secs = (System.nanoTime() - start).toDouble / 1e9
+      val tps = hits / secs
+
+      log.info(s"the watched generator has stopped, AverageTps($tps, $secs)")
+      monitor ! AverageTps(tps, secs)
   }
 }
