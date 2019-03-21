@@ -12,7 +12,7 @@ import scala.language.postfixOps
 import scala.math.abs
 
 @RunWith(classOf[JUnitRunner])
-abstract class BehaviorActorSpec(name: String)
+abstract class BehaviorActorSpecBase(name: String)
     extends TestKit(ActorSystem(name))
     with Matchers
     with WordSpecLike
@@ -21,13 +21,13 @@ abstract class BehaviorActorSpec(name: String)
   override def afterAll(): Unit = shutdown(system)
 }
 
-trait AverageTpsMatcher { this: BehaviorActorSpec =>
-  def expectAverageTps(behavior: IntervalBehavior,
+trait AverageTpsMatcher { this: BehaviorActorSpecBase =>
+  def expectAverageTps(sender: BehaviorActorBuilder,
                        expectedTps: Int,
                        expectedSecs: Int,
                        epsilon: Double): Assertion = {
     val probe = TestProbe()
-    system.actorOf(AverageTpsObserver.props(behavior, probe.ref))
+    system.actorOf(AverageTpsObserver.props(sender, probe.ref))
     val AverageTps(obTps, obSecs) =
       probe.expectMsgType[AverageTps](expectedSecs + 1 seconds)
 

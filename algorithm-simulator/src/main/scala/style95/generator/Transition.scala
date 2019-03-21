@@ -16,12 +16,12 @@ class CompleteTransition private[generator](startTps: Int,
   class Behavior extends BehaviorDescriptor {
     class Gen extends TimingGenerator {
       def next(elapsed: FiniteDuration): FiniteDuration = {
-        require(startTps >= 1, "startTps should be at least one")
-        require(endTps >= 1, "endTps should be at least one")
+        require(startTps >= 0 && endTps >= 0, "tps should be positive")
 
         val tps = lerp(startTps, endTps, elapsed / duration)
         // avoid log(0)
-        (-log(1.0 - random()) / tps) seconds
+        // avoid zero division
+        (-log(1.0 - random()) / (tps + 1e-6)) seconds
       }
       private def lerp(start: Double, end: Double, t: Double) =
         t * (end - start) + start

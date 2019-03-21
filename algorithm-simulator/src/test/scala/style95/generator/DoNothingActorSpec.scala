@@ -3,7 +3,7 @@ package style95.generator
 import scala.concurrent.duration._
 
 class DoNothingActorSpec
-    extends BehaviorActorSpec("DoNothingActorSpec")
+    extends BehaviorActorSpecBase("DoNothingActorSpec")
     with AverageTpsMatcher {
   "A DoNothing TPS actor" should {
     "produce no observable TPS" in {

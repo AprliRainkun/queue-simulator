@@ -3,20 +3,18 @@ package style95.generator
 import scala.concurrent.duration._
 
 class TransitionActorSpec
-    extends BehaviorActorSpec("TransitionActorSpec")
+    extends BehaviorActorSpecBase("TransitionActorSpec")
     with AverageTpsMatcher {
 
   override def afterAll(): Unit = shutdown(system)
 
-  "A transition TPS actor that" can {
-    "produce statistically verifiable result" should {
-      "give the expected mean TPS in a smooth transition" in {
-        testTransition(10, 30, 15)
-      }
+  "A transition TPS actor" should {
+    "give the expected mean TPS in a smooth transition" in {
+      testTransition(10, 30, 15)
+    }
 
-      "give the expected mean TPS in a sharp transition" in {
-        testTransition(10, 1000, 5)
-      }
+    "give the expected mean TPS in a sharp transition" in {
+      testTransition(10, 1000, 5)
     }
   }
 

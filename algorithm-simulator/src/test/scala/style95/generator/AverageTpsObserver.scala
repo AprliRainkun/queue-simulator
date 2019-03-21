@@ -6,16 +6,16 @@ import style95.Container.ActivationMessage
 object AverageTpsObserver {
   final case class AverageTps(tps: Double, secs: Double)
 
-  def props(behavior: IntervalBehavior, monitor: ActorRef): Props =
+  def props(behavior: BehaviorActorBuilder, monitor: ActorRef): Props =
     Props(new AverageTpsObserver(behavior, monitor))
 }
 
-class AverageTpsObserver(behavior: IntervalBehavior, monitor: ActorRef)
+class AverageTpsObserver(sender: BehaviorActorBuilder, monitor: ActorRef)
     extends Actor
     with ActorLogging {
   import AverageTpsObserver._
 
-  private val generator = context.actorOf(behavior against self)
+  private val generator = context.actorOf(sender against self)
   context.watch(generator)
   private var hits = 0
   private val start = System.nanoTime()
