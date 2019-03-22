@@ -36,22 +36,20 @@ tasks.withType(ScalaCompile) {
 
 mainClassName = 'style95.Simulator'
 
-task runSimulator(type: JavaExec) {
+task runScenario(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'style95.Run'
+
+    if (!project.hasProperty("scenario")) {
+        throw new GradleScriptException("runScenario task should a Pscenario argument")
+    }
+    main = 'style95.scenarios.' + scenario
 
     args = []
-    if(project.hasProperty('inMsg')){
-        args += inMsg
-    }
     if(project.hasProperty('exec')){
         args += exec
     }
     if(project.hasProperty('create')){
         args += create
-    }
-    if(project.hasProperty('running')){
-        args += running
     }
     if(project.hasProperty('outpath')){
         args += outpath
