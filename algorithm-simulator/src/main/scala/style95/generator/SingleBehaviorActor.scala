@@ -67,7 +67,7 @@ class SingleBehaviorActor(behavior: IntervalBehavior, receiver: ActorRef)
         // However, a empty queue can show up at the first call of scheduleNext.
         val hit = now + timingGen.next((now - start) nanos).toNanos
         preGeneratedHits = preGeneratedHits.enqueue(hit)
-        log.info("empty queue encountered")
+        log.debug("empty queue encountered")
       }
       // Scheduler can be sluggish sometime, so we pre-generate for 2 scheduling intervals.
       val lookForward = now + 2 * schedulerPrecision.toNanos

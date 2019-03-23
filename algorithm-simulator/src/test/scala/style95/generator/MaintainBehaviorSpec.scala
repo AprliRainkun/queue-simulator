@@ -5,7 +5,7 @@ import org.scalatest.{Matchers, WordSpecLike}
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class BehaviorsSpec extends WordSpecLike with Matchers {
+class MaintainBehaviorSpec extends WordSpecLike with Matchers {
   val epsilon = 0.05
 
   "A maintain TPS behavior" should {
