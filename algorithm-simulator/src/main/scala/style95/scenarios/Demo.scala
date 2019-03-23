@@ -3,7 +3,5 @@ import style95.generator._
 import scala.concurrent.duration._
 
 object Demo extends ScenarioBase {
-  val secs = 10
-  val tps = 10
-  override def actorBuilder: BehaviorActorBuilder = Maintain(tps) in secs.seconds
+  override def actorBuilder: BehaviorActorBuilder = Maintain(10) in 10.seconds
 }
