@@ -6,26 +6,25 @@ import style95.QueueSimulator.ConsultScaler
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.language.postfixOps
-
 import Container._
+import style95.scaler._
 
 object QueueSimulator {
   final case object ConsultScaler
 
-  def props(scaler: Scaler,
+  def props(scaler: FirstScaler,
             logger: ActorRef,
             checkInterval: FiniteDuration,
             containerProps: ContainerProperty): Props =
     Props(new QueueSimulator(scaler, logger, checkInterval, containerProps))
 }
 
-class QueueSimulator(scaler: Scaler,
+class QueueSimulator(scaler: FirstScaler,
                      logger: ActorRef,
                      checkInterval: FiniteDuration,
                      containerProps: ContainerProperty)
     extends Actor {
 
-  import Scaler._
   import context.{system, dispatcher}
 
   private var queue = Queue.empty[ActivationMessage]
@@ -69,11 +68,11 @@ class QueueSimulator(scaler: Scaler,
                                    averageLatency)
 
       scaler.decide(
-        DecideInfo(inSinceLastTick,
-                   outSinceLastTick,
-                   existing.size,
-                   creating.size,
-                   queue.size)) match {
+        DecisionInfo(inSinceLastTick,
+                     outSinceLastTick,
+                     existing.size,
+                     creating.size,
+                     queue.size)) match {
         case AddContainer(number) =>
           println(s"create $number containers")
           (1 to number) foreach { _ =>
