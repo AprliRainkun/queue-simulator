@@ -42,16 +42,17 @@ def plot_time_series(df, figsize=(12, 7)):
     return fig
 
 
-def plot_histogram(df, figsize=(10, 4)):
+def plot_histogram(df, figsize=(10, 4), percentile=95):
     fig, axes = plt.subplots(1, 2, figsize=figsize)
-    fig.subplots_adjust(wspace=0.3)
+    fig.subplots_adjust(wspace=0.4)
 
     for metric, ax in zip(histogram_metrics, axes.flatten()):
         y = df[metric] / 1e6  # convert to ms
         _, bins, _ = ax.hist(
-            y, bins=100, range=(y.min(), np.percentile(y, 95)),
+            y, bins=80, range=(y.min(), np.percentile(y, percentile)),
             color='orange'
         )
+        # add_mean_bar(y, ax)
         ax.grid(axis='x')
         ax.set_title(metric)
         ax.set_xlabel('ms')
@@ -66,3 +67,26 @@ def plot_histogram(df, figsize=(10, 4)):
         right.set_ylabel('likelihood')
     plt.show()
     return fig
+
+
+def distribution_summary(df):
+    def row(metric):
+        x = df[metric] / 1e6 # convert to ms
+        return {
+            'metric': metric, 'mean': x.mean(), 
+            'p90': np.percentile(x, 90), 'p95': np.percentile(x, 95),
+            'p99': np.percentile(x, 99), 'p99.9': np.percentile(x, 99.9)
+        }
+    data = [row(m) for m in histogram_metrics]
+    # make sure that the order of the columns is deterministic
+    return pd.DataFrame(data, columns=[
+        'metric', 'mean', 'p90', 'p95', 'p99', 'p99.9'
+    ])
+
+
+def add_mean_bar(x, ax):
+    mean = x.mean()
+    ax.axvline(mean, color='k', linestyle='dashed', linewidth=2)
+    xmin, xmax = ax.get_xlim()
+    _, ymax = ax.get_ylim()
+    ax.text(mean + (xmax - xmin) * 0.05, ymax * 0.8, f'Mean: {mean:.2f}')
