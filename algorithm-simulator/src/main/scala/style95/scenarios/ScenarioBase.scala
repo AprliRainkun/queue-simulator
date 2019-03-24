@@ -6,10 +6,11 @@ import akka.pattern.gracefulStop
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import style95._
-import style95.scaler.FirstScaler
+import style95.scaler.Scaler
 
 abstract class ScenarioBase extends App {
   def actorBuilder: generator.BehaviorActorBuilder
+  def scaler: Scaler
 
   println("[Simulator]")
   println("arguments:")
@@ -27,7 +28,6 @@ abstract class ScenarioBase extends App {
   val containerProps =
     Container.ContainerProperty(createTime millis, execTime millis)
   val actorSystem = ActorSystem("QueueSimulatorSystem")
-  val scaler = new FirstScaler(1000) // Limit is not working yet
   val logger = actorSystem.actorOf(StatusLogger.props(outDir), "status-logger")
   val simulator = actorSystem.actorOf(
     QueueSimulator.props(scaler, logger, 100 millis, containerProps))

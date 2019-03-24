@@ -13,14 +13,14 @@ import style95.scaler._
 object QueueSimulator {
   final case object ConsultScaler
 
-  def props(scaler: FirstScaler,
+  def props(scaler: Scaler,
             logger: ActorRef,
             checkInterval: FiniteDuration,
             containerProps: ContainerProperty): Props =
     Props(new QueueSimulator(scaler, logger, checkInterval, containerProps))
 }
 
-class QueueSimulator(scaler: FirstScaler,
+class QueueSimulator(scaler: Scaler,
                      logger: ActorRef,
                      checkInterval: FiniteDuration,
                      containerProps: ContainerProperty)
