@@ -58,18 +58,16 @@ class QueueSimulator(scaler: Scaler,
       requester ! msg
       logger ! ActivationRecord(elapsed,
                                 invoked - start,
-                                System.nanoTime() - start)
+                                System.nanoTime() - invoked)
       tryRunActions()
     case ConsultScaler =>
-      logger ! StatusLogger.QueueSnapshot(
-        elapsed,
-        inSinceLastTick,
-        outSinceLastTick,
-        queue.size,
-        existing.size,
-        creating.size,
-        averageLatency
-      )
+      logger ! StatusLogger.QueueSnapshot(elapsed,
+                                          inSinceLastTick,
+                                          outSinceLastTick,
+                                          queue.size,
+                                          existing.size,
+                                          creating.size,
+                                          averageLatency)
 
       scaler.decide(
         DecisionInfo(inSinceLastTick,
