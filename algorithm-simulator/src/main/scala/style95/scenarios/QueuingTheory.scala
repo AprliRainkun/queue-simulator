@@ -5,6 +5,8 @@ import style95.scaler._
 
 import scala.concurrent.duration._
 
+// A test with queuing theory. Spawn all container at once and make
+// TPS fixed.
 object QueuingTheory extends ScenarioBase {
   override def actorBuilder: BehaviorActorBuilder =
     ScenarioBuilder startsWith {

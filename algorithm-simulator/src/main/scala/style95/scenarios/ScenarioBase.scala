@@ -3,6 +3,7 @@ package style95.scenarios
 import akka.actor.ActorSystem
 import akka.pattern.gracefulStop
 
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import style95._
@@ -38,5 +39,7 @@ abstract class ScenarioBase extends App {
   println(s"the scenario takes $duration")
   Thread.sleep((duration + 1.seconds).toMillis)
   val stoppedFut = gracefulStop(logger, 5 seconds)
+  Await.result(stoppedFut, 5 seconds)
+
   actorSystem.terminate()
 }
