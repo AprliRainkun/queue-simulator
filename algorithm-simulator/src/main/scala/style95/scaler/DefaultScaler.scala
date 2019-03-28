@@ -8,7 +8,7 @@ class DefaultScaler(containerLimit: Int) extends Scaler {
   private var maxConsumptionInTick = -1.0
 
   override def decide(info: DecisionInfo): Decision = {
-    var DecisionInfo(income, outcome, existing, inProgress, current) = info
+    var DecisionInfo(_, income, outcome, _, existing, inProgress, current) = info
 
     totalIncome += income
     totalConsumption += outcome

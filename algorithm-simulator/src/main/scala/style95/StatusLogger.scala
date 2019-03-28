@@ -22,6 +22,8 @@ object StatusLogger {
       timeOfInvoke: Long // nanoseconds of invocation
   )
 
+  final case class PredictedTps(elapse: Long, tps: Double)
+
   def props(outPath: String): Props = Props(new StatusLogger(outPath))
 }
 

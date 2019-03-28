@@ -1,32 +1,37 @@
 package style95
 
 import akka.actor.{Actor, ActorRef, Props}
+import style95.Container._
 import style95.QueueSimulator.ConsultScaler
+import style95.StatusLogger.ActivationRecord
+import style95.scaler._
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import Container._
-import style95.StatusLogger.ActivationRecord
-import style95.scaler._
 
 object QueueSimulator {
   final case object ConsultScaler
 
-  def props(scaler: Scaler,
+  def props(buildScaler: (FiniteDuration, FiniteDuration, ActorRef) => Scaler,
             logger: ActorRef,
             checkInterval: FiniteDuration,
             containerProps: ContainerProperty): Props =
-    Props(new QueueSimulator(scaler, logger, checkInterval, containerProps))
+    Props(
+      new QueueSimulator(buildScaler, logger, checkInterval, containerProps))
 }
 
-class QueueSimulator(scaler: Scaler,
-                     logger: ActorRef,
-                     checkInterval: FiniteDuration,
-                     containerProps: ContainerProperty)
+class QueueSimulator(
+    buildScaler: (FiniteDuration, FiniteDuration, ActorRef) => Scaler,
+    logger: ActorRef,
+    checkInterval: FiniteDuration,
+    containerProps: ContainerProperty)
     extends Actor {
 
-  import context.{system, dispatcher}
+  import context.{dispatcher, system}
+
+  private val scaler =
+    buildScaler(containerProps.initialDelay, containerProps.execTime, logger)
 
   private val simStart = System.nanoTime()
   private var queue = Queue.empty[ActivationMessage]
@@ -38,6 +43,9 @@ class QueueSimulator(scaler: Scaler,
 
   private var scheduledNum = 0
   private var averageLatency = Double.NaN
+
+  private var averageInvokeTime = 0D
+  private var completedActivations = 0L
 
   system.scheduler.schedule(0 seconds, checkInterval) {
     self ! ConsultScaler
@@ -53,12 +61,16 @@ class QueueSimulator(scaler: Scaler,
       existing += sender -> ContainerStatus(true)
       tryRunActions()
     case WorkDone(msg @ ActivationMessage(requester, start, invoked)) =>
+      val invokeTime = System.nanoTime() - invoked
       outSinceLastTick += 1
       existing += sender -> ContainerStatus(true)
       requester ! msg
-      logger ! ActivationRecord(elapsed,
-                                invoked - start,
-                                System.nanoTime() - invoked)
+
+      completedActivations += 1
+      averageInvokeTime += 1.0 / completedActivations * (invokeTime - averageInvokeTime)
+
+      logger ! ActivationRecord(elapsed, invoked - start, invokeTime)
+
       tryRunActions()
     case ConsultScaler =>
       logger ! StatusLogger.QueueSnapshot(elapsed,
@@ -70,8 +82,10 @@ class QueueSimulator(scaler: Scaler,
                                           averageLatency)
 
       scaler.decide(
-        DecisionInfo(inSinceLastTick,
+        DecisionInfo(elapsed,
+                     inSinceLastTick,
                      outSinceLastTick,
+                     averageInvokeTime nanos,
                      existing.size,
                      creating.size,
                      queue.size)) match {
@@ -82,7 +96,8 @@ class QueueSimulator(scaler: Scaler,
               context.actorOf(Container.props(self, containerProps))
             creating += container
           }
-        case NoOp =>
+        case RemoveContainer(number) => ???
+        case NoOp                    =>
       }
 
       inSinceLastTick = 0
