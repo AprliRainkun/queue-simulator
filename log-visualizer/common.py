@@ -48,9 +48,9 @@ def plot_histogram(df, figsize=(10, 4), percentile=95):
 
     for metric, ax in zip(histogram_metrics, axes.flatten()):
         y = df[metric] / 1e6  # convert to ms
+        range = (y.min(), np.percentile(y, percentile))
         _, bins, _ = ax.hist(
-            y, bins=80, range=(y.min(), np.percentile(y, percentile)),
-            color='orange'
+            y, bins=100, range=range, color='orange'
         )
         # add_mean_bar(y, ax)
         ax.grid(axis='x')
@@ -58,15 +58,29 @@ def plot_histogram(df, figsize=(10, 4), percentile=95):
         ax.set_xlabel('ms')
         ax.set_ylabel('number')
 
+        x, y = zoomed_cdf(y, percentile)
+        
         right = ax.twinx()
-        right.hist(
-            y, bins=bins, density=True, cumulative=True,
-            histtype='step', linewidth=2
-        )
+        right.plot(x, y)
         right.grid(axis='y')
         right.set_ylabel('likelihood')
+        right.set_ylim((0, 1))
     plt.show()
     return fig
+
+
+def zoomed_cdf(data, percentile):
+    nbins = 100
+    left, right = data.min(), np.percentile(data, percentile)
+    zoom_len = right - left
+    yd, x = np.histogram(
+        data, bins=nbins, range=(left, right), density=True
+    )
+    # normalize the density function, so that its cumulative sum is 1
+    yd = yd / (nbins / zoom_len)
+    yc = np.cumsum(yd) * (percentile / 100)
+    
+    return x[:-1], yc
 
 
 def distribution_summary(df):
