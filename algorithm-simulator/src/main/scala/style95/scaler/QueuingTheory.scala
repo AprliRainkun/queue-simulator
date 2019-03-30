@@ -7,48 +7,42 @@ import scala.collection.immutable.Queue
 import scala.concurrent.duration._
 import scala.math.{ceil, max}
 
-class QueuingTheory(creatingHint: FiniteDuration,
-                    consultInterval: FiniteDuration,
-                    logger: ActorRef,
-                    alpha: Double,
-                    slo: FiniteDuration,
-                    idleTimeout: FiniteDuration,
+// Time series analysis + queuing theory + ad hoc rules
+// Algorithm outline:
+//   1. Use single exponential smoothing to forecast feature load.
+//   2. Scaling out with queuing theory (M/M/1 queue) to meet schedule latency requirements.
+//   3. Scaling in with ad hoc rules
+class QueuingTheory(
+    creatingHint: FiniteDuration, // a hint value for how long it takes to create a new container
+    consultInterval: FiniteDuration, // the time interval between successive invocations of the scaler
+    logger: ActorRef, // log status to file
+    alpha: Double, // parameter of time series analysis
+    slo: FiniteDuration, // schedule latency service level objective
+    idleTimeout: FiniteDuration, // wKZait how long before killing an idle container
 ) extends Scaler {
-  // TA + M/M/1 + Rule
-  // scaling out according to queuing theory;
-  // scaling in by rules
   require(slo > 0.second, "latency requirement must be greater than zero")
 
   private var s = 0D
+  // A container buffer is maintained to make sure an idle container won't be killed
+  // prematurely before the idleTimeout is expired.
   private var idleBuffer = Queue.empty[(ActorRef, Long)]
 
   override def decide(info: DecisionInfo): Decision = {
     val DecisionInfo(elapse, in, _, invokeTime, existing, creating, queued) =
       info
-    // 1. Parameters
-    //   a. Prediction horizon: the predicted system state that are used to model the queue.
-    // 2. Analysis stage
-    //   a. use time series analysis to predict the load status
-    //   b. estimate the service rate (aggregated service rate as if there is only one container)
-    //   c. estimate the container creating time
-    // 3. Plan stage
-    //   a. we know the predicted load in the prediction horizon
-    //   b. then make a conservative guess of the number of would-be existing containers
-    //   c. calculate needed the number of containers to satisfy the latency SLO
-    //   d. if should scale up:
-    //        remove container from standing-by list, then emit AddContainer
-    //      if should scale down:
-    //        add container to standing-by list
-    //   e. emit RemoveContainer if there are some standing-by containers that have timed out
+
+    // Because container creation takes some time, we need a proactive policy to scaling out.
+    // The number of look forward steps equals the container creation time divided by
+    // the scaler invocation interval.
     val nSteps = forwardSteps(creatingHint, consultInterval)
     val forecast =
       forecastTps(in.toDouble / (consultInterval.toMillis / 1e3), nSteps)
 
     logger ! PredictedTps(elapse + nSteps * consultInterval.toNanos, forecast)
-    // assume all initialing containers will be ready
+    // Since we are looking at the future, we can assume all the initialing containers to be ready.
     val readyContainer = existing.size + creating.size
+    // a lower bound of container number is calculated the queuing equations.
     val lowerBound = deriveRequired(forecast, invokeTime)
-    //val upperBound = utilizationBound(forecast, invokeTime)
 
     println(s"forecast: $forecast ,container: $readyContainer, lb: $lowerBound")
 
@@ -58,6 +52,7 @@ class QueuingTheory(creatingHint: FiniteDuration,
       AddContainer(newAlloc)
     } else if (queued == 0) {
       // scaling in
+      // We only scale in when the queue is empty
       markAsIdle(max(readyContainer - lowerBound, 0), existing)
       evictTimeout() match {
         case Nil     => NoOp
@@ -73,27 +68,35 @@ class QueuingTheory(creatingHint: FiniteDuration,
     ceil(creatingHint.toMillis.toDouble / consultInterval.toMillis).toInt
 
   private def forecastTps(currentTps: Double, steps: Int): Double = {
+    // single exponential smoothing
     s += alpha * (currentTps - s)
     s
   }
 
   private def deriveRequired(tps: Double, invokeTime: FiniteDuration): Int = {
-    if (tps <= 0.01) { // kind of arbitrary
+    if (tps <= 0.01) {
+      // The smoothing tps will only approaching zero.
+      // Here a rather arbitrary threshold is applied to make sure
+      // the container number can be scaled in to zero.
       0
     } else {
       val serveRate = 1e9D / invokeTime.toNanos
       val sloSecs = slo.toNanos / 1e9D
+      // the number of server required to meet the required average latency.
+      // This equation is not accurate. It's derived based on a simplified queuing model.
       ceil((1 + tps * sloSecs) / (serveRate * sloSecs)).toInt
     }
   }
 
   private def wakeUpIdle(number: Int): Int = {
     val spill = max(number - idleBuffer.size, 0)
+    // prefer to wake up the newly marked containers
     idleBuffer = idleBuffer.dropRight(number)
     spill
   }
 
   private def markAsIdle(number: Int, candidates: List[ActorRef]): Unit = {
+    // avoid repeated buffering
     val notMarked = candidates.filter(a =>
       !idleBuffer.exists {
         case (buffered, _) => a == buffered
