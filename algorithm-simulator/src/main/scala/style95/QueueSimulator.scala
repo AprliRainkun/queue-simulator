@@ -1,6 +1,6 @@
 package style95
 
-import akka.actor.{Actor, ActorRef, Props}
+import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import style95.Container._
 import style95.QueueSimulator.ConsultScaler
 import style95.StatusLogger.ActivationRecord
@@ -26,7 +26,8 @@ class QueueSimulator(
     logger: ActorRef,
     checkInterval: FiniteDuration,
     containerProps: ContainerProperty)
-    extends Actor {
+    extends Actor
+    with ActorLogging {
 
   import context.{dispatcher, system}
 
@@ -37,6 +38,7 @@ class QueueSimulator(
   private var queue = Queue.empty[ActivationMessage]
   private var existing = Map.empty[ActorRef, ContainerStatus]
   private var creating = Set.empty[ActorRef]
+  private var deleting = Set.empty[ActorRef]
 
   private var inSinceLastTick = 0
   private var outSinceLastTick = 0
@@ -44,7 +46,8 @@ class QueueSimulator(
   private var scheduledNum = 0
   private var averageLatency = Double.NaN
 
-  private var averageInvokeTime = 0D
+  // initialize average invoke time to a hint value
+  private var averageInvokeTime = containerProps.execTime.toNanos.toDouble
   private var completedActivations = 0L
 
   system.scheduler.schedule(0 seconds, checkInterval) {
@@ -60,12 +63,22 @@ class QueueSimulator(
       creating -= sender
       existing += sender -> ContainerStatus(true)
       tryRunActions()
+    case ContainerStopped =>
+      if (!deleting.contains(sender)) {
+        log.error(
+          s"state transition violation: $sender is not in deleting state")
+      }
+      deleting -= sender
     case WorkDone(msg @ ActivationMessage(requester, start, invoked)) =>
       val invokeTime = System.nanoTime() - invoked
       outSinceLastTick += 1
-      existing += sender -> ContainerStatus(true)
+      // avoid scheduling action to a deleted container
+      if (!deleting.contains(sender)) {
+        existing += sender -> ContainerStatus(true)
+      }
       requester ! msg
 
+      // incremental average
       completedActivations += 1
       averageInvokeTime += 1.0 / completedActivations * (invokeTime - averageInvokeTime)
 
@@ -86,8 +99,8 @@ class QueueSimulator(
                      inSinceLastTick,
                      outSinceLastTick,
                      averageInvokeTime nanos,
-                     existing.size,
-                     creating.size,
+                     existing.keys.toList,
+                     creating.toList,
                      queue.size)) match {
         case AddContainer(number) =>
           println(s"create $number containers")
@@ -96,8 +109,13 @@ class QueueSimulator(
               context.actorOf(Container.props(self, containerProps))
             creating += container
           }
-        case RemoveContainer(number) => ???
-        case NoOp                    =>
+        case RemoveContainer(victims) =>
+          victims foreach { v =>
+            v ! StopContainer // trigger graceful shutdown
+            existing -= v
+            deleting += v
+          }
+        case NoOp =>
       }
 
       inSinceLastTick = 0
@@ -124,13 +142,9 @@ class QueueSimulator(
   }
 
   private def idleContainers =
-    existing
-      .filter {
-        case (_, ContainerStatus(ready)) => ready
-      }
-      .map {
-        case (actor, _) => actor
-      }
+    existing.filter {
+      case (_, ContainerStatus(ready)) => ready
+    }.keys
 
   private def elapsed: Long = System.nanoTime() - simStart
 

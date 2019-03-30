@@ -26,15 +26,11 @@ abstract class ScenarioBase extends App {
     "ex) ./gradlew runScenario -Pscenario=Demo -PoutDir=out/demo")
 
   val outDir = if (args.length >= 1) args(0) else "out/demo"
-  val execTime = if (args.length >= 2) args(1).toInt else 100
-  val createTime = if (args.length >= 3) args(2).toInt else 300
 
-  val containerProps =
-    Container.ContainerProperty(createTime millis, execTime millis)
   val actorSystem = ActorSystem("QueueSimulatorSystem")
   val logger = actorSystem.actorOf(StatusLogger.props(outDir), "status-logger")
   val simulator = actorSystem.actorOf(
-    QueueSimulator.props(buildScaler, logger, 100 millis, containerProps))
+    QueueSimulator.props(buildScaler, logger, 100 millis, containerProperty))
   val logGenerator =
     actorSystem.actorOf(actorBuilder against simulator, "load-generator")
 

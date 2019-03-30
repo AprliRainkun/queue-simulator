@@ -11,8 +11,9 @@ def read_tables(folder):
     if folder.endswith('/'):
         folder = folder[:-1]
     snapshots = pd.read_csv(folder + '/snapshots.csv')
+    predictions = pd.read_csv(folder + '/predictions.csv')
     activations = pd.read_csv(folder + '/activations.csv')
-    return format_data(snapshots, activations)
+    return format_data(snapshots, predictions, activations)
 
 
 def format_data(*dfs):
@@ -38,6 +39,26 @@ def plot_time_series(df, figsize=(12, 7)):
         ax.grid(axis='both')
         ax.set_title(metric)
         ax.set_xlabel('ms')
+    plt.show()
+    return fig
+
+
+def plot_predictions(observation, prediction, figsize=(12, 4)):
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+    
+    ox = observation.index.values / 1e6 # convert to ms
+    oy = observation['in'].rolling('1s').sum()
+    oh, = ax.plot(ox, oy)
+    
+    px = prediction.index.values / 1e6
+    py = prediction['predictedTps']
+    ph, = ax.plot(px, py)
+    
+    ax.grid(axis='both')
+    ax.set_title('Observed TPS and predicted TPS')
+    ax.set_xlabel('ms')
+    ax.legend((oh, ph), ('observed', 'predicted'))
+    
     plt.show()
     return fig
 
