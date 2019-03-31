@@ -44,7 +44,7 @@ class Container(val simulator: ActorRef, property: ContainerProperty)
   import Container._
   import context.{system, dispatcher}
 
-  private var tomeStone = false
+  private var tombStone = false
 
   system.scheduler.scheduleOnce(property.initialDelay) {
     simulator ! ContainerCreated
@@ -55,10 +55,10 @@ class Container(val simulator: ActorRef, property: ContainerProperty)
       timers.startSingleTimer(DelayKey, DelayMsg(msg), property.execTime)
     case DelayMsg(msg) =>
       simulator ! WorkDone(msg)
-      if (tomeStone) {
+      if (tombStone) {
         simulator ! ContainerStopped
         self ! PoisonPill
       }
-    case StopContainer => tomeStone = true
+    case StopContainer => tombStone = true
   }
 }
